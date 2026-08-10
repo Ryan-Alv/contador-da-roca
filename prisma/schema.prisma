@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model agenda_fiscal {
+  id              Int                   @id @default(autoincrement())
+  produtor_id     Int?
+  obrigatoriedade String?               @db.VarChar(255)
+  data_vencimento DateTime?             @db.Date
+  status          agenda_fiscal_status? @default(Pendente)
+  produtores      produtores?           @relation(fields: [produtor_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "agenda_fiscal_ibfk_1")
+
+  @@index([produtor_id], map: "produtor_id")
+}
+
+model apuracao_resultado {
+  id                Int           @id @default(autoincrement())
+  propriedade_id    Int?
+  exercicio_ano     Int?
+  receita_total     Decimal?      @db.Decimal(15, 2)
+  despesa_total     Decimal?      @db.Decimal(15, 2)
+  resultado_liquido Decimal?      @db.Decimal(15, 2)
+  propriedades      propriedades? @relation(fields: [propriedade_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "apuracao_resultado_ibfk_1")
+
+  @@index([propriedade_id], map: "propriedade_id")
+}
+
+model ativos_biologicos {
+  id                Int           @id @default(autoincrement())
+  propriedade_id    Int?
+  especie           String?       @db.VarChar(100)
+  categoria         String?       @db.VarChar(100)
+  quantidade        Decimal?      @db.Decimal(10, 2)
+  valor_justo_atual Decimal?      @db.Decimal(15, 2)
+  propriedades      propriedades? @relation(fields: [propriedade_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "ativos_biologicos_ibfk_1")
+
+  @@index([propriedade_id], map: "propriedade_id")
+}
+
+model bem_imobilizado {
+  id                    Int           @id @default(autoincrement())
+  propriedade_id        Int?
+  descricao             String?       @db.VarChar(255)
+  valor_aquisicao       Decimal?      @db.Decimal(15, 2)
+  data_aquisicao        DateTime?     @db.Date
+  depreciacao_acumulada Decimal?      @default(0.00) @db.Decimal(15, 2)
+  propriedades          propriedades? @relation(fields: [propriedade_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "bem_imobilizado_ibfk_1")
+
+  @@index([propriedade_id], map: "propriedade_id")
+}
+
+model conciliacao_bancaria {
+  id             Int                        @id @default(autoincrement())
+  propriedade_id Int?
+  banco          String?                    @db.VarChar(100)
+  data_transacao DateTime?                  @db.Date
+  descricao      String?                    @db.VarChar(255)
+  valor          Decimal?                   @db.Decimal(15, 2)
+  tipo           conciliacao_bancaria_tipo?
+  conciliado     Boolean?                   @default(false)
+  propriedades   propriedades?              @relation(fields: [propriedade_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "conciliacao_bancaria_ibfk_1")
+
+  @@index([propriedade_id], map: "propriedade_id")
+}
+
+model demonstracoes_contabeis {
+  id                 Int           @id @default(autoincrement())
+  propriedade_id     Int?
+  tipo_demonstracao  String?       @db.VarChar(100)
+  periodo_referencia DateTime?     @db.Date
+  dados_json         Json?
+  propriedades       propriedades? @relation(fields: [propriedade_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "demonstracoes_contabeis_ibfk_1")
+
+  @@index([propriedade_id], map: "propriedade_id")
+}
+
+model folha_rural {
+  id               Int           @id @default(autoincrement())
+  propriedade_id   Int?
+  nome_funcionario String?       @db.VarChar(255)
+  cargo            String?       @db.VarChar(100)
+  salario_base     Decimal?      @db.Decimal(15, 2)
+  competencia      DateTime?     @db.Date
+  encargos_sociais Decimal?      @db.Decimal(15, 2)
+  propriedades     propriedades? @relation(fields: [propriedade_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "folha_rural_ibfk_1")
+
+  @@index([propriedade_id], map: "propriedade_id")
+}
+
+model obrigacoes_fiscais {
+  id               Int           @id @default(autoincrement())
+  propriedade_id   Int?
+  tipo_obrigacao   String?       @db.VarChar(150)
+  numero_documento String?       @db.VarChar(100)
+  data_validade    DateTime?     @db.Date
+  propriedades     propriedades? @relation(fields: [propriedade_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "obrigacoes_fiscais_ibfk_1")
+
+  @@index([propriedade_id], map: "propriedade_id")
+}
+
+model plano_contas {
+  id           Int                     @id @default(autoincrement())
+  codigo_conta String                  @db.VarChar(50)
+  nome_conta   String                  @db.VarChar(255)
+  tipo_conta   plano_contas_tipo_conta
+}
+
+model produtores {
+  id            Int                       @id @default(autoincrement())
+  nome          String                    @db.VarChar(255)
+  cpf_cnpj      String                    @db.VarChar(20)
+  telefone      String?                   @db.VarChar(20)
+  email         String?                   @db.VarChar(100)
+  municipio     String?                   @db.VarChar(100)
+  uf            String?                   @db.Char(2)
+  tipo_producao produtores_tipo_producao?
+  agenda_fiscal agenda_fiscal[]
+  propriedades  propriedades[]
+  speds_gerados speds_gerados[]
+}
+
+model propriedades {
+  id                      Int                     @id @default(autoincrement())
+  produtor_id             Int?
+  nome_propriedade        String                  @db.VarChar(255)
+  cpf_cnpj                String?                 @db.VarChar(20)
+  area_total              Decimal?                @db.Decimal(10, 2)
+  tipo_exploracao         String?                 @default("Misto") @db.VarChar(50)
+  municipio               String?                 @db.VarChar(100)
+  uf                      String?                 @db.Char(2)
+  registro_car            String?                 @db.VarChar(100)
+  ccir_itr                String?                 @db.VarChar(100)
+  apuracao_resultado      apuracao_resultado[]
+  ativos_biologicos       ativos_biologicos[]
+  bem_imobilizado         bem_imobilizado[]
+  conciliacao_bancaria    conciliacao_bancaria[]
+  demonstracoes_contabeis demonstracoes_contabeis[]
+  folha_rural             folha_rural[]
+  obrigacoes_fiscais      obrigacoes_fiscais[]
+  produtores              produtores?             @relation(fields: [produtor_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "propriedades_ibfk_1")
+
+  @@index([produtor_id], map: "produtor_id")
+}
+
+model speds_gerados {
+  id                 Int                      @id @default(autoincrement())
+  produtor_id        Int?
+  tipo_sped          speds_gerados_tipo_sped?
+  ano_calendario     Int?
+  data_geracao       DateTime?                @default(now()) @db.Timestamp(0)
+  status_transmissao String?                  @db.VarChar(50)
+  produtores         produtores?              @relation(fields: [produtor_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "speds_gerados_ibfk_1")
+
+  @@index([produtor_id], map: "produtor_id")
+}
+
+enum speds_gerados_tipo_sped {
+  ECD
+  ECF
+  EFD_Reinf @map("EFD-Reinf")
+}
+
+enum plano_contas_tipo_conta {
+  Ativo
+  Passivo
+  Receita
+  Despesa
+  Patrim_nio_L_quido @map("Patrimônio Líquido")
+}
+
+enum agenda_fiscal_status {
+  Pendente
+  Conclu_do @map("Concluído")
+  Atrasado
+}
+
+enum conciliacao_bancaria_tipo {
+  Credito
+  Debito
+}
+
+enum produtores_tipo_producao {
+  Misto
+  Lavoura
+  Pecu_ria @map("Pecuária")
+}
