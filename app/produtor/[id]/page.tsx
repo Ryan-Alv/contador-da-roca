@@ -354,7 +354,7 @@ export default async function ProdutorPropriedades({ params, searchParams }: Pro
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Registro CAR</label>
-                  <input type="text" name="registro_car" defaultValue={propriedadeEditando.registro_car || ''} className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-[#1e5631] />
+                  <input type="text" name="registro_car" defaultValue={propriedadeEditando.registro_car || ''} className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-[#1e5631]" />
                 </div>
               </div>
 

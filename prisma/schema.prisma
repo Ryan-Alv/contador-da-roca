@@ -239,4 +239,7 @@ enum produtores_tipo_producao {
   Misto
   Lavoura
   Pecu_ria @map("Pecuária")
+  Suinocultura
+  Silvicultura
+  Avicultura
 }

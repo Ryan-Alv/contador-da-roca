@@ -12,7 +12,7 @@ export default function NovoProdutorPage() {
     const email = formData.get('email') as string;
     const municipio = formData.get('municipio') as string;
     const uf = formData.get('uf') as string;
-    const tipo_producao = formData.get('tipo_producao') as any;
+    const tipo_producao = formData.get('tipo_producao') as string;
 
     if (!nome || !cpf_cnpj) return;
 
@@ -31,7 +31,14 @@ export default function NovoProdutorPage() {
     redirect('/');
   }
 
-  const tiposProducao = ['Misto', 'Lavoura', 'Pecuária'];
+  const tiposProducao = [
+    { value: 'Misto', label: 'Misto' },
+    { value: 'Lavoura', label: 'Lavoura' },
+    { value: 'Pecu_ria', label: 'Pecuária' }, // mantém o value compatível com o enum atual
+    { value: 'Suinocultura', label: 'Suinocultura' },
+    { value: 'Silvicultura', label: 'Silvicultura' },
+    { value: 'Avicultura', label: 'Avicultura' }
+  ];
 
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden relative">
@@ -105,7 +112,7 @@ export default function NovoProdutorPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Produção Principal</label>
               <select name="tipo_producao" className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 outline-none bg-white focus:ring-2 focus:ring-emerald-100 focus:border-[#1e5631]">
                 {tiposProducao.map(tipo => (
-                  <option key={tipo} value={tipo}>{tipo}</option>
+                  <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
                 ))}
               </select>
             </div>
