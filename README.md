@@ -1,37 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Agrocont — Sistema de Gestão Rural
 
-## Getting Started
+Um sistema simples para controle de produtores rurais e suas propriedades, com cadastro, edição e recursos básicos de apoio contábil/fiscal. Este repositório contém a aplicação Next.js + Prisma usada durante o desenvolvimento.
 
-First, run the development server:
+Resumo rápido
+- Framework: Next.js 16 (App Router)
+- ORM: Prisma (MySQL)
+- UI: Tailwind CSS + componentes simples
+- Auth/email: next-auth / resend (dependências presentes)
+- Linguagem: TypeScript / React
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Índice
+- [Funcionalidades](#funcionalidades)
+- [Requisitos](#requisitos)
+- [Instalação e execução local](#instalação-e-execução-local)
+- [Configurar banco de dados (Prisma)](#configurar-banco-de-dados-prisma)
+- [Variáveis de ambiente](#variáveis-de-ambiente)
+- [Adicionar novos tipos (enum) — exemplo: Tipo de Produção](#adicionar-novos-tipos-enum---exemplo-tipo-de-produção)
+- [Boas práticas de commits / EOL (line endings)](#boas-práticas-de-commits--eol-line-endings)
+- [Segurança — segredos e `.env`](#segurança----segredos-e-env)
+- [Troubleshooting / Erros comuns](#troubleshooting--erros-comuns)
+- [Contribuindo](#contribuindo)
+- [Deploy](#deploy)
+- [Licença](#licença)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Funcionalidades
+- CRUD de Produtores e Propriedades
+- Formulários com validação básica no frontend
+- Modelagem com Prisma (modelos: `produtores`, `propriedades`, `usuarios`, etc.)
+- Painel administrativo básico (layout e navegação)
+- Ações server-side (server actions) em formulários Next.js (app router)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## Requisitos
+- Node.js >= 18 (recomendado)
+- npm (compatível), ou yarn/pnpm
+- MySQL local ou remoto (acesso a DATABASE_URL)
+- Git
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Instalação e execução local
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Clone o repositório:
+   git clone https://github.com/Ryan-Alv/contador-da-roca.git
+   cd contador-da-roca
 
-## Deploy on Vercel
+2. Instale dependências:
+   npm install
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. Prepare variáveis de ambiente: copie um arquivo de exemplo `.env.example` (abaixo há um modelo) para `.env` e preencha:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-D
+4. Inicialize o banco (Prisma) e rode a aplicação:
+   - Gerar client Prisma (após configurar schema e .env):
+     npx prisma generate
+   - Aplicar migrations (recomendado):
+     npx prisma migrate dev --name init
+   - Iniciar dev server:
+     npm run dev
+   - Acesse: http://localhost:3000
+
+Scripts úteis (package.json):
+- npm run dev — rodar em dev
+- npm run build — build de produção
+- npm run start — iniciar build em produção
+- npm run lint — rodar eslint
+
+---
+
+## Variáveis de ambiente
+
+Crie um arquivo `.env` com as seguintes variáveis (exemplo, NÃO cole chaves reais aqui — use placeholders):
+
+.env.example
