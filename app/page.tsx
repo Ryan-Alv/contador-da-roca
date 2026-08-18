@@ -1,16 +1,19 @@
 import Link from 'next/link';
 import { prisma } from '../lib/prisma';
-import { Search, Mail } from 'lucide-react';
+import { redirect } from 'next/navigation';
+import { Search, Mail, Edit2 } from 'lucide-react';
 
 interface Props {
   searchParams: Promise<{
     q?: string;
+    editar_produtor?: string;
   }>;
 }
 
 export default async function Home({ searchParams }: Props) {
   const resolvedSearch = await searchParams;
   const termoBusca = (resolvedSearch.q || '').toLowerCase();
+  const produtorIdEditando = resolvedSearch.editar_produtor ? parseInt(resolvedSearch.editar_produtor) : null;
 
   const todosProdutores = await prisma.produtores.findMany({
     include: {
@@ -19,7 +22,41 @@ export default async function Home({ searchParams }: Props) {
     orderBy: { nome: 'asc' }
   });
 
+  const produtorEditando = produtorIdEditando 
+    ? todosProdutores.find((p) => p.id === produtorIdEditando) 
+    : null;
+
   const propriedades = await prisma.propriedades.findMany();
+
+  // Server Action para atualizar o produtor
+  async function atualizarProdutor(formData: FormData) {
+    'use server'
+    const id = parseInt(formData.get('id') as string);
+    const nome = formData.get('nome') as string;
+    const cpf_cnpj = formData.get('cpf_cnpj') as string;
+    const telefone = formData.get('telefone') as string;
+    const email = formData.get('email') as string;
+    const municipio = formData.get('municipio') as string;
+    const uf = formData.get('uf') as string;
+    const tipo_producao = formData.get('tipo_producao') as any;
+
+    if (!id || !nome || !cpf_cnpj) return;
+
+    await prisma.produtores.update({
+      where: { id },
+      data: {
+        nome,
+        cpf_cnpj,
+        telefone,
+        email,
+        municipio,
+        uf,
+        tipo_producao
+      }
+    });
+
+    redirect('/');
+  }
 
   // Filtrar produtores incluindo o e-mail nos critérios
   const produtoresFiltrados = todosProdutores.filter((p) => {
@@ -41,8 +78,17 @@ export default async function Home({ searchParams }: Props) {
     return nomeMatch || cpfCnpjMatch || emailMatch || municipioMatch || ufMatch || propriedadeMatch;
   });
 
+  const tiposProducao = [
+    { value: 'Misto', label: 'Misto' },
+    { value: 'Lavoura', label: 'Lavoura' },
+    { value: 'Pecu_ria', label: 'Pecuária' },
+    { value: 'Suinocultura', label: 'Suinocultura' },
+    { value: 'Silvicultura', label: 'Silvicultura' },
+    { value: 'Avicultura', label: 'Avicultura' }
+  ];
+
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-gray-50 relative">
       <header className="bg-white shadow-sm sticky top-0 z-10 border-b border-gray-100">
         <nav className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -165,7 +211,14 @@ export default async function Home({ searchParams }: Props) {
                         </p>
                       </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-x-6">
+                    <div className="flex shrink-0 items-center gap-x-4">
+                        <Link 
+                          href={`/?editar_produtor=${p.id}`} 
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                          title="Editar Produtor"
+                        >
+                          <Edit2 size={18} />
+                        </Link>
                         <Link 
                         href={`/produtor/${p.id}`} 
                         className="text-emerald-600 font-semibold text-sm hover:text-emerald-800 flex items-center gap-1.5 group-hover:underline"
@@ -186,6 +239,109 @@ export default async function Home({ searchParams }: Props) {
             <p className='mt-1 text-sm'>Desenvolvido com Next.js e Tailwind CSS.</p>
         </footer>
       </div>
+
+      {/* MODAL DE EDIÇÃO DE PRODUTOR */}
+      {produtorEditando && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-gray-100 animate-in fade-in zoom-in duration-200">
+            <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h2 className="text-xl font-bold text-gray-900">Editar Produtor Rural</h2>
+              <Link href="/" className="text-gray-400 hover:text-gray-600 text-xl font-bold">✕</Link>
+            </div>
+
+            <form action={atualizarProdutor} className="p-8 space-y-4 max-h-[80vh] overflow-y-auto">
+              <input type="hidden" name="id" value={produtorEditando.id} />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo / Razão Social *</label>
+                <input 
+                  type="text" 
+                  name="nome" 
+                  defaultValue={produtorEditando.nome} 
+                  required 
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-[#1e5631]" 
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">CPF / CNPJ *</label>
+                  <input 
+                    type="text" 
+                    name="cpf_cnpj" 
+                    defaultValue={produtorEditando.cpf_cnpj} 
+                    required 
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-[#1e5631]" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                  <input 
+                    type="text" 
+                    name="telefone" 
+                    defaultValue={produtorEditando.telefone || ''} 
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-[#1e5631]" 
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+                <input 
+                  type="email" 
+                  name="email" 
+                  defaultValue={produtorEditando.email || ''} 
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-[#1e5631]" 
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Município</label>
+                  <input 
+                    type="text" 
+                    name="municipio" 
+                    defaultValue={produtorEditando.municipio || ''} 
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-[#1e5631]" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">UF</label>
+                  <input 
+                    type="text" 
+                    name="uf" 
+                    maxLength={2} 
+                    defaultValue={produtorEditando.uf || ''} 
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-[#1e5631]" 
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Produção Principal</label>
+                <select 
+                  name="tipo_producao" 
+                  defaultValue={produtorEditando.tipo_producao || 'Misto'} 
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 outline-none bg-white focus:ring-2 focus:ring-emerald-100 focus:border-[#1e5631]"
+                >
+                  {tiposProducao.map(tipo => (
+                    <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <Link href="/" className="px-6 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition">
+                  Cancelar
+                </Link>
+                <button type="submit" className="px-6 py-3 rounded-xl bg-[#1e5631] text-white font-semibold hover:bg-[#174426] transition shadow-lg shadow-emerald-900/10">
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
