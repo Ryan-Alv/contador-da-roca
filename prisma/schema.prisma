@@ -81,25 +81,39 @@ model apuracao_resultado {
 }
 
 model ativos_biologicos {
-  id                Int           @id @default(autoincrement())
-  propriedade_id    Int?
-  especie           String?       @db.VarChar(100)
-  categoria         String?       @db.VarChar(100)
-  quantidade        Decimal?      @db.Decimal(10, 2)
-  valor_justo_atual Decimal?      @db.Decimal(15, 2)
-  propriedades      propriedades? @relation(fields: [propriedade_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "ativos_biologicos_ibfk_1")
+  id                   Int           @id @default(autoincrement())
+  propriedade_id       Int
+  descricao            String        @db.VarChar(255)
+  especie              String        @db.VarChar(100)
+  categoria            String        @db.VarChar(50)
+  estagio              String        @db.VarChar(100)
+  quantidade           Decimal       @db.Decimal(10, 2)
+  unidade              String        @db.VarChar(50)
+  valor_justo_anterior Decimal?      @db.Decimal(15, 2)
+  valor_justo_atual    Decimal       @db.Decimal(15, 2)
+  custo_aquisicao      Decimal       @db.Decimal(15, 2)
+  data_avaliacao       DateTime      @db.Date
+  created_at           DateTime      @default(now()) @db.Timestamp(0)
+  updated_at           DateTime      @updatedAt @db.Timestamp(0)
+  propriedades         propriedades  @relation(fields: [propriedade_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "ativos_biologicos_ibfk_1")
 
   @@index([propriedade_id], map: "propriedade_id")
 }
 
 model bem_imobilizado {
-  id                    Int           @id @default(autoincrement())
-  propriedade_id        Int?
-  descricao             String?       @db.VarChar(255)
-  valor_aquisicao       Decimal?      @db.Decimal(15, 2)
-  data_aquisicao        DateTime?     @db.Date
-  depreciacao_acumulada Decimal?      @default(0.00) @db.Decimal(15, 2)
-  propriedades          propriedades? @relation(fields: [propriedade_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "bem_imobilizado_ibfk_1")
+  id               Int          @id @default(autoincrement())
+  propriedade_id   Int
+  descricao        String       @db.VarChar(255)
+  categoria        String       @db.VarChar(100)
+  metodo           String       @default("Linear") @db.VarChar(50)
+  valor_aquisicao  Decimal      @db.Decimal(15, 2)
+  data_aquisicao   DateTime     @db.Date
+  taxa_depreciacao Decimal      @db.Decimal(5, 2)
+  vida_util        Int
+  valor_residual   Decimal      @default(0.00) @db.Decimal(15, 2)
+  created_at       DateTime     @default(now()) @db.Timestamp(0)
+  updated_at       DateTime     @updatedAt @db.Timestamp(0)
+  propriedades     propriedades @relation(fields: [propriedade_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "bem_imobilizado_ibfk_1")
 
   @@index([propriedade_id], map: "propriedade_id")
 }

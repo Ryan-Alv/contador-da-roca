@@ -141,8 +141,8 @@ export default async function ProdutorPropriedades({ params, searchParams }: Pro
             <a href={`/produtor/${produtor.id}`} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#2d6a4f] text-white font-medium shadow-sm transition">
               <Building2 size={18} /> Propriedades
             </a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-emerald-100 hover:bg-[#255d43] transition"><Leaf size={18} /> Ativos Biológicos</a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-emerald-100 hover:bg-[#255d43] transition"><Tractor size={18} /> Imobilizado</a>
+            <a href={`/produtor/${produtor.id}/ativos-biologicos`} className="flex items-center gap-3 px-4 py-3 rounded-xl text-emerald-100 hover:bg-[#255d43] transition"><Leaf size={18} /> Ativos Biológicos</a>
+            <a href={`/produtor/${produtor.id}/imobilizado`} className="flex items-center gap-3 px-4 py-3 rounded-xl text-emerald-100 hover:bg-[#255d43] transition"><Tractor size={18} /> Imobilizado</a>
             <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-emerald-100 hover:bg-[#255d43] transition"><Users size={18} /> Folha Rural</a>
             <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-emerald-100 hover:bg-[#255d43] transition"><DollarSign size={18} /> Conciliação Bancária</a>
             <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-emerald-100 hover:bg-[#255d43] transition"><Calculator size={18} /> Apuração</a>
