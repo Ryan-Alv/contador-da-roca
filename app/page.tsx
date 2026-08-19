@@ -1,23 +1,39 @@
 import Link from 'next/link';
 import { prisma } from '../lib/prisma';
 import { redirect } from 'next/navigation';
-import { Search, Mail, Edit2 } from 'lucide-react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import bcrypt from 'bcrypt';
+import { Search, Mail, Edit2, KeyRound, AlertTriangle } from 'lucide-react';
+import LogoutButton from '@/components/LogoutButton';
+import { apenasDigitos, normalizarEmail, formatarCpfCnpj } from '@/lib/formatadores';
 
 interface Props {
   searchParams: Promise<{
     q?: string;
     editar_produtor?: string;
+    erro?: string;
   }>;
 }
 
 export default async function Home({ searchParams }: Props) {
+  // Defesa em profundidade: o middleware já bloqueia quem não é ADMIN,
+  // mas checamos de novo aqui direto no servidor.
+  const session = await getServerSession(authOptions);
+  if (!session?.user) redirect('/login');
+  if (session.user.role !== 'ADMIN') {
+    redirect(session.user.produtorId ? `/produtor/${session.user.produtorId}` : '/pendente');
+  }
+
   const resolvedSearch = await searchParams;
   const termoBusca = (resolvedSearch.q || '').toLowerCase();
   const produtorIdEditando = resolvedSearch.editar_produtor ? parseInt(resolvedSearch.editar_produtor) : null;
+  const erroProdutor = resolvedSearch.erro || null;
 
   const todosProdutores = await prisma.produtores.findMany({
     include: {
-      propriedades: true
+      propriedades: true,
+      usuarios: { select: { id: true, email: true, verificado: true } },
     },
     orderBy: { nome: 'asc' }
   });
@@ -33,14 +49,36 @@ export default async function Home({ searchParams }: Props) {
     'use server'
     const id = parseInt(formData.get('id') as string);
     const nome = formData.get('nome') as string;
-    const cpf_cnpj = formData.get('cpf_cnpj') as string;
-    const telefone = formData.get('telefone') as string;
-    const email = formData.get('email') as string;
+    const cpf_cnpj = apenasDigitos(formData.get('cpf_cnpj') as string);
+    const telefoneDigitado = apenasDigitos(formData.get('telefone') as string);
+    const emailDigitado = normalizarEmail(formData.get('email') as string);
     const municipio = formData.get('municipio') as string;
     const uf = formData.get('uf') as string;
     const tipo_producao = formData.get('tipo_producao') as any;
 
+    const telefone = telefoneDigitado || null;
+    const email = emailDigitado || null;
+
     if (!id || !nome || !cpf_cnpj) return;
+
+    const duplicado = await prisma.produtores.findFirst({
+      where: {
+        id: { not: id },
+        OR: [
+          { cpf_cnpj },
+          ...(telefone ? [{ telefone }] : []),
+          ...(email ? [{ email }] : []),
+        ],
+      },
+    });
+
+    if (duplicado) {
+      const campo =
+        duplicado.cpf_cnpj === cpf_cnpj ? 'CPF/CNPJ'
+        : duplicado.telefone === telefone ? 'telefone'
+        : 'e-mail';
+      redirect(`/?editar_produtor=${id}&erro=${encodeURIComponent(`Já existe outro produtor cadastrado com esse ${campo} (${duplicado.nome}).`)}`);
+    }
 
     await prisma.produtores.update({
       where: { id },
@@ -56,6 +94,65 @@ export default async function Home({ searchParams }: Props) {
     });
 
     redirect('/');
+  }
+
+  // Server Action para criar/atualizar o acesso (login) vinculado a um produtor.
+  // Também reaproveita uma conta que já exista com o mesmo e-mail (ex.: alguém
+  // que se cadastrou sozinho em /registro antes de o admin vincular o acesso).
+  async function salvarAcessoProdutor(formData: FormData) {
+    'use server'
+    const produtorId = parseInt(formData.get('produtorId') as string);
+    const emailAcesso = ((formData.get('email_acesso') as string) || '').trim();
+    const senhaAcesso = ((formData.get('senha_acesso') as string) || '').trim();
+
+    if (!produtorId || !emailAcesso) return;
+
+    const produtor = await prisma.produtores.findUnique({ where: { id: produtorId } });
+    if (!produtor) return;
+
+    // Conta já vinculada a este produtor (se o admin estiver só trocando e-mail/senha)
+    const vinculadoAtual = await prisma.usuarios.findUnique({ where: { produtor_id: produtorId } });
+    // Conta já existente com esse e-mail (ex.: cadastro público em /registro)
+    const contaComEsseEmail = await prisma.usuarios.findUnique({ where: { email: emailAcesso } });
+
+    // O e-mail já pertence a outro produtor diferente deste -> não sobrescrever.
+    if (
+      contaComEsseEmail &&
+      contaComEsseEmail.id !== vinculadoAtual?.id &&
+      contaComEsseEmail.produtor_id &&
+      contaComEsseEmail.produtor_id !== produtorId
+    ) {
+      return;
+    }
+
+    const alvo = vinculadoAtual ?? contaComEsseEmail;
+
+    if (alvo) {
+      const data: { email: string; verificado: boolean; role: 'USER'; produtor_id: number; senha_hash?: string } = {
+        email: emailAcesso,
+        verificado: true,
+        role: 'USER',
+        produtor_id: produtorId,
+      };
+      if (senhaAcesso) {
+        data.senha_hash = await bcrypt.hash(senhaAcesso, 10);
+      }
+      await prisma.usuarios.update({ where: { id: alvo.id }, data });
+    } else {
+      if (!senhaAcesso) return; // senha é obrigatória ao criar o primeiro acesso
+      await prisma.usuarios.create({
+        data: {
+          nome: produtor.nome,
+          email: emailAcesso,
+          senha_hash: await bcrypt.hash(senhaAcesso, 10),
+          verificado: true,
+          role: 'USER',
+          produtor_id: produtorId,
+        },
+      });
+    }
+
+    redirect(`/?editar_produtor=${produtorId}`);
   }
 
   // Filtrar produtores incluindo o e-mail nos critérios
@@ -99,12 +196,15 @@ export default async function Home({ searchParams }: Props) {
               Contador <span className="text-emerald-600">da Roça</span>
             </h1>
           </div>
-          <Link href="/produtor/novo" className="bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-emerald-700 transition duration-150 flex items-center gap-2 shadow-sm">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Novo Produtor
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/produtor/novo" className="bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-emerald-700 transition duration-150 flex items-center gap-2 shadow-sm">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Novo Produtor
+            </Link>
+            <LogoutButton />
+          </div>
         </nav>
       </header>
 
@@ -200,7 +300,7 @@ export default async function Home({ searchParams }: Props) {
                       </div>
                       <div className="min-w-0 flex-auto">
                         <p className="text-lg font-semibold leading-6 text-gray-900">{p.nome}</p>
-                        <p className="mt-1 truncate text-sm leading-5 text-gray-500">CPF/CNPJ: {p.cpf_cnpj}</p>
+                        <p className="mt-1 truncate text-sm leading-5 text-gray-500">CPF/CNPJ: {formatarCpfCnpj(p.cpf_cnpj)}</p>
                         {p.email && (
                           <p className="mt-0.5 truncate text-xs leading-5 text-gray-500 flex items-center gap-1">
                             <Mail size={12} className="text-gray-400" /> {p.email}
@@ -252,6 +352,13 @@ export default async function Home({ searchParams }: Props) {
             <form action={atualizarProdutor} className="p-8 space-y-4 max-h-[80vh] overflow-y-auto">
               <input type="hidden" name="id" value={produtorEditando.id} />
 
+              {erroProdutor && (
+                <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+                  <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                  <span>{erroProdutor}</span>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo / Razão Social *</label>
                 <input 
@@ -269,7 +376,7 @@ export default async function Home({ searchParams }: Props) {
                   <input 
                     type="text" 
                     name="cpf_cnpj" 
-                    defaultValue={produtorEditando.cpf_cnpj} 
+                    defaultValue={formatarCpfCnpj(produtorEditando.cpf_cnpj)} 
                     required 
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-[#1e5631]" 
                   />
@@ -339,6 +446,54 @@ export default async function Home({ searchParams }: Props) {
                 </button>
               </div>
             </form>
+
+            {/* ACESSO AO SISTEMA (RBAC) — cria/atualiza o login vinculado a este produtor */}
+            <div className="px-8 pb-8">
+              <div className="border-t border-gray-100 pt-6">
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-1">
+                  <KeyRound size={16} className="text-[#1e5631]" /> Acesso ao Sistema
+                </h3>
+                <p className="text-xs text-gray-500 mb-4">
+                  {produtorEditando.usuarios
+                    ? `Este produtor já possui login (${produtorEditando.usuarios.email}). Preencha a senha apenas para alterá-la.`
+                    : 'Este produtor ainda não tem login. Crie um e-mail e senha para que ele possa acessar seu próprio painel.'}
+                </p>
+                <form action={salvarAcessoProdutor} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <input type="hidden" name="produtorId" value={produtorEditando.id} />
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">E-mail de acesso</label>
+                    <input
+                      type="email"
+                      name="email_acesso"
+                      required
+                      defaultValue={produtorEditando.usuarios?.email || ''}
+                      placeholder="produtor@email.com"
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-gray-900 text-sm outline-none focus:ring-2 focus:ring-emerald-100 focus:border-[#1e5631]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      {produtorEditando.usuarios ? 'Nova senha (opcional)' : 'Senha *'}
+                    </label>
+                    <input
+                      type="password"
+                      name="senha_acesso"
+                      required={!produtorEditando.usuarios}
+                      placeholder="••••••••"
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-gray-900 text-sm outline-none focus:ring-2 focus:ring-emerald-100 focus:border-[#1e5631]"
+                    />
+                  </div>
+                  <div className="md:col-span-2 flex justify-end">
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition"
+                    >
+                      {produtorEditando.usuarios ? 'Atualizar Acesso' : 'Criar Acesso'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
           </div>
         </div>
       )}

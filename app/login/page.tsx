@@ -17,29 +17,28 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const callbackUrl = searchParams.get('callbackUrl') || '/';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const res = await signIn('credentials', {
+        redirect: false,
+        email,
+        password,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Erro ao fazer login.');
+      if (!res || res.error) {
+        throw new Error(res?.error || 'E-mail ou senha incorretos.');
       }
 
-      // Salvar token JWT no localStorage
-      localStorage.setItem('token', data.token);
-
-      // Redirecionar para a página principal (Dashboard)
-      router.push('/');
+      // O middleware cuida de redirecionar ADMIN -> painel geral
+      // e USER -> sua própria página de produtor.
+      router.push(callbackUrl);
+      router.refresh();
     } catch (err: any) {
       setError(err.message);
     } finally {

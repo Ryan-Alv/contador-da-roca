@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { exigirAcessoProdutor } from '@/lib/api-guard';
 import { parseAtivoInput, serializarAtivo, toPrismaData } from '@/lib/ativos-biologicos';
 
 type RouteParams = {
@@ -32,6 +33,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Recurso não encontrado.' }, { status: 404 });
     }
 
+    const acessoNegado = await exigirAcessoProdutor(produtorId);
+    if (acessoNegado) return acessoNegado;
+
     const propriedadeIds = await getPropriedadesIds(produtorId);
     const ativo = await prisma.ativos_biologicos.findFirst({
       where: { id: ativoId, propriedade_id: { in: propriedadeIds } },
@@ -58,6 +62,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (!produtorId || Number.isNaN(ativoId)) {
       return NextResponse.json({ error: 'Recurso não encontrado.' }, { status: 404 });
     }
+
+    const acessoNegado = await exigirAcessoProdutor(produtorId);
+    if (acessoNegado) return acessoNegado;
 
     const body = await request.json();
     const input = parseAtivoInput(body);
@@ -100,6 +107,9 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     if (!produtorId || Number.isNaN(ativoId)) {
       return NextResponse.json({ error: 'Recurso não encontrado.' }, { status: 404 });
     }
+
+    const acessoNegado = await exigirAcessoProdutor(produtorId);
+    if (acessoNegado) return acessoNegado;
 
     const propriedadeIds = await getPropriedadesIds(produtorId);
     const existente = await prisma.ativos_biologicos.findFirst({

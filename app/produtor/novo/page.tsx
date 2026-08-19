@@ -1,20 +1,58 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Users } from 'lucide-react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import LogoutButton from '@/components/LogoutButton';
+import { apenasDigitos, normalizarEmail } from '@/lib/formatadores';
+import { ArrowLeft, Users, AlertTriangle } from 'lucide-react';
 
-export default function NovoProdutorPage() {
+interface Props {
+  searchParams: Promise<{ erro?: string }>;
+}
+
+export default async function NovoProdutorPage({ searchParams }: Props) {
+  // Defesa em profundidade: o middleware já bloqueia quem não é ADMIN.
+  const session = await getServerSession(authOptions);
+  if (!session?.user) redirect('/login');
+  if (session.user.role !== 'ADMIN') {
+    redirect(session.user.produtorId ? `/produtor/${session.user.produtorId}` : '/pendente');
+  }
+
+  const { erro } = await searchParams;
+
   async function cadastrarProdutor(formData: FormData) {
     'use server'
     const nome = formData.get('nome') as string;
-    const cpf_cnpj = formData.get('cpf_cnpj') as string;
-    const telefone = formData.get('telefone') as string;
-    const email = formData.get('email') as string;
+    const cpf_cnpj = apenasDigitos(formData.get('cpf_cnpj') as string);
+    const telefoneDigitado = apenasDigitos(formData.get('telefone') as string);
+    const emailDigitado = normalizarEmail(formData.get('email') as string);
     const municipio = formData.get('municipio') as string;
     const uf = formData.get('uf') as string;
     const tipo_producao = formData.get('tipo_producao') as string;
 
+    const telefone = telefoneDigitado || null;
+    const email = emailDigitado || null;
+
     if (!nome || !cpf_cnpj) return;
+
+    const duplicado = await prisma.produtores.findFirst({
+      where: {
+        OR: [
+          { cpf_cnpj },
+          ...(telefone ? [{ telefone }] : []),
+          ...(email ? [{ email }] : []),
+        ],
+      },
+    });
+
+    if (duplicado) {
+      const campo =
+        duplicado.cpf_cnpj === cpf_cnpj ? 'CPF/CNPJ'
+        : duplicado.telefone === telefone ? 'telefone'
+        : 'e-mail';
+      redirect(`/produtor/novo?erro=${encodeURIComponent(`Já existe um produtor cadastrado com esse ${campo} (${duplicado.nome}).`)}`);
+    }
 
     await prisma.produtores.create({
       data: {
@@ -59,9 +97,12 @@ export default function NovoProdutorPage() {
           </div>
         </div>
 
-        <div className="pt-6 border-t border-emerald-900/50 mt-4">
-          <p className="text-[10px] text-emerald-300 font-semibold uppercase tracking-wider">Base normativa</p>
-          <p className="text-[11px] text-emerald-200 mt-0.5">NBC TG 29 • CPC 29 • SRF 83/2001</p>
+        <div className="pt-6 border-t border-emerald-900/50 mt-4 space-y-4">
+          <div>
+            <p className="text-[10px] text-emerald-300 font-semibold uppercase tracking-wider">Base normativa</p>
+            <p className="text-[11px] text-emerald-200 mt-0.5">NBC TG 29 • CPC 29 • SRF 83/2001</p>
+          </div>
+          <LogoutButton className="flex items-center gap-2 text-sm font-medium text-emerald-100 hover:text-white transition" />
         </div>
       </aside>
 
@@ -76,6 +117,12 @@ export default function NovoProdutorPage() {
           </div>
 
           <form action={cadastrarProdutor} className="p-8 space-y-5">
+            {erro && (
+              <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+                <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                <span>{erro}</span>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo / Razão Social *</label>
               <input type="text" name="nome" required placeholder="Ex: João da Silva" className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-[#1e5631]" />

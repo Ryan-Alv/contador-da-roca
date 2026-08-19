@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import {
   Building2,
   Leaf,
@@ -29,6 +31,7 @@ import { CATEGORIA_CORES } from '@/lib/bem-imobilizado-types';
 import BemImobilizadoModal from './BemImobilizadoModal';
 import ExcluirBemButton from './ExcluirBemButton';
 import RecalcularDepreciacaoButton from './RecalcularDepreciacaoButton';
+import LogoutButton from '@/components/LogoutButton';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -41,6 +44,15 @@ export default async function ImobilizadoPage({ params, searchParams }: Props) {
   const produtorId = parseInt(resolvedParams.id, 10);
 
   if (Number.isNaN(produtorId)) notFound();
+
+  // Defesa em profundidade: o middleware já bloqueia acesso indevido,
+  // mas checamos de novo aqui direto no servidor (também precisamos da
+  // role para decidir se mostra "Voltar aos Produtores").
+  const session = await getServerSession(authOptions);
+  if (!session?.user) redirect('/login');
+  if (session.user.role !== 'ADMIN' && session.user.produtorId !== produtorId) {
+    redirect(session.user.produtorId ? `/produtor/${session.user.produtorId}` : '/pendente');
+  }
 
   const produtor = await prisma.produtores.findUnique({
     where: { id: produtorId },
@@ -87,12 +99,14 @@ export default async function ImobilizadoPage({ params, searchParams }: Props) {
     <div className="flex h-screen bg-[#f8fafc] overflow-hidden relative">
       <aside className="w-80 bg-[#1e5631] text-white flex flex-col justify-between p-6 shadow-xl overflow-y-auto">
         <div>
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-emerald-200 text-sm font-medium mb-8 hover:text-white transition"
-          >
-            <ArrowLeft size={16} /> Voltar aos Produtores
-          </Link>
+          {session.user.role === 'ADMIN' && (
+            <Link
+              href="/"
+              className="flex items-center gap-2 text-emerald-200 text-sm font-medium mb-8 hover:text-white transition"
+            >
+              <ArrowLeft size={16} /> Voltar aos Produtores
+            </Link>
+          )}
 
           <div className="bg-[#174426] p-4 rounded-2xl flex items-center gap-3 mb-8 border border-emerald-800/50">
             <div className="bg-emerald-900/80 p-3 rounded-xl text-emerald-300">
@@ -153,13 +167,16 @@ export default async function ImobilizadoPage({ params, searchParams }: Props) {
           </nav>
         </div>
 
-        <div className="pt-6 border-t border-emerald-900/50 mt-4">
-          <p className="text-[10px] text-emerald-300 font-semibold uppercase tracking-wider">
-            Base normativa
-          </p>
-          <p className="text-[11px] text-emerald-200 mt-0.5">
-            NBC TG 29 • CPC 29 • SRF 83/2001
-          </p>
+        <div className="pt-6 border-t border-emerald-900/50 mt-4 space-y-4">
+          <div>
+            <p className="text-[10px] text-emerald-300 font-semibold uppercase tracking-wider">
+              Base normativa
+            </p>
+            <p className="text-[11px] text-emerald-200 mt-0.5">
+              NBC TG 29 • CPC 29 • SRF 83/2001
+            </p>
+          </div>
+          <LogoutButton className="flex items-center gap-2 text-sm font-medium text-emerald-100 hover:text-white transition" />
         </div>
       </aside>
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { exigirAcessoProdutor } from '@/lib/api-guard';
 import {
   calcularTotaisImobilizado,
   parseBemInput,
@@ -34,6 +35,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Produtor não encontrado.' }, { status: 404 });
     }
 
+    const acessoNegado = await exigirAcessoProdutor(produtorId);
+    if (acessoNegado) return acessoNegado;
+
     const propriedadeIds = await getPropriedadesIds(produtorId);
 
     const bens = await prisma.bem_imobilizado.findMany({
@@ -63,6 +67,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!produtorId) {
       return NextResponse.json({ error: 'Produtor não encontrado.' }, { status: 404 });
     }
+
+    const acessoNegado = await exigirAcessoProdutor(produtorId);
+    if (acessoNegado) return acessoNegado;
 
     const body = await request.json();
     const input = parseBemInput(body);

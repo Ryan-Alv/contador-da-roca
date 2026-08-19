@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { exigirAcessoProdutor } from '@/lib/api-guard';
 import { parseBemInput, serializarBem, toPrismaData } from '@/lib/bem-imobilizado';
 
 type RouteParams = {
@@ -32,6 +33,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Recurso não encontrado.' }, { status: 404 });
     }
 
+    const acessoNegado = await exigirAcessoProdutor(produtorId);
+    if (acessoNegado) return acessoNegado;
+
     const propriedadeIds = await getPropriedadesIds(produtorId);
     const bem = await prisma.bem_imobilizado.findFirst({
       where: { id: bemId, propriedade_id: { in: propriedadeIds } },
@@ -58,6 +62,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (!produtorId || Number.isNaN(bemId)) {
       return NextResponse.json({ error: 'Recurso não encontrado.' }, { status: 404 });
     }
+
+    const acessoNegado = await exigirAcessoProdutor(produtorId);
+    if (acessoNegado) return acessoNegado;
 
     const body = await request.json();
     const input = parseBemInput(body);
@@ -100,6 +107,9 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     if (!produtorId || Number.isNaN(bemId)) {
       return NextResponse.json({ error: 'Recurso não encontrado.' }, { status: 404 });
     }
+
+    const acessoNegado = await exigirAcessoProdutor(produtorId);
+    if (acessoNegado) return acessoNegado;
 
     const propriedadeIds = await getPropriedadesIds(produtorId);
     const existente = await prisma.bem_imobilizado.findFirst({
